@@ -3,7 +3,7 @@
 #
 
 NAME=scn2img
-CCSRCS=$(NAME).cpp 
+CCSRCS=$(NAME).cpp
 
 
 #

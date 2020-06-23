@@ -1,20 +1,114 @@
 // Source file for the scene image capture program
 
 
-
 ////////////////////////////////////////////////////////////////////////
-// Include files 
+// Include files
 ////////////////////////////////////////////////////////////////////////
 
 #include "R3Graphics/R3Graphics.h"
 #ifdef USE_MESA
 #  include "GL/osmesa.h"
 #else
-#  include "fglut/fglut.h" 
+#  include "fglut/fglut.h"
 #  define USE_GLUT
 #endif
 
+#include <experimental/filesystem>
+#include <unordered_map>
 
+
+std::unordered_map<std::string, int> class_map = {
+  {"ATM", 0},
+  {"air_conditioner", 1},
+  {"arch", 2},
+  {"bathroom_stuff", 3},
+  {"bathtub", 4},
+  {"bed", 5},
+  {"bench_chair", 6},
+  {"books", 7},
+  {"candle", 8},
+  {"cart", 9},
+  {"ceiling", 10},
+  {"chair", 11},
+  {"clock", 12},
+  {"cloth", 13},
+  {"coffin", 14},
+  {"column", 15},
+  {"computer", 16},
+  {"curtain", 17},
+  {"decoration", 18},
+  {"desk", 19},
+  {"door", 20},
+  {"dresser", 21},
+  {"dressing_table", 22},
+  {"drinkbar", 23},
+  {"empty", 24},
+  {"fan", 25},
+  {"fence", 26},
+  {"fireplace", 27},
+  {"floor", 28},
+  {"garage_door", 29},
+  {"grill", 30},
+  {"gym_equipment", 31},
+  {"hanger", 32},
+  {"hanging_kitchen_cabinet", 33},
+  {"headstone", 34},
+  {"heater", 35},
+  {"household_appliance", 36},
+  {"indoor_lamp", 37},
+  {"kitchen_appliance", 38},
+  {"kitchen_cabinet", 39},
+  {"kitchen_set", 40},
+  {"kitchenware", 41},
+  {"magazines", 42},
+  {"mailbox", 43},
+  {"mirror", 44},
+  {"music", 45},
+  {"ottoman", 46},
+  {"outdoor_cover", 47},
+  {"outdoor_lamp", 48},
+  {"outdoor_seating", 49},
+  {"outdoor_spring", 50},
+  {"partition", 51},
+  {"person", 52},
+  {"pet", 53},
+  {"picture_frame", 54},
+  {"pillow", 55},
+  {"plant", 56},
+  {"pool", 57},
+  {"recreation", 58},
+  {"roof", 59},
+  {"rug", 60},
+  {"safe", 61},
+  {"shelving", 62},
+  {"shoes", 63},
+  {"shoes_cabinet", 64},
+  {"shower", 65},
+  {"sink", 66},
+  {"sofa", 67},
+  {"stairs", 68},
+  {"stand", 69},
+  {"storage_bench", 70},
+  {"switch", 71},
+  {"table", 72},
+  {"table_and_chair", 73},
+  {"television", 74},
+  {"toilet", 75},
+  {"toy", 76},
+  {"trash_can", 77},
+  {"trinket", 78},
+  {"tripod", 79},
+  {"tv_stand", 80},
+  {"unknown", 81},
+  {"vase", 82},
+  {"vehicle", 83},
+  {"wall", 84},
+  {"wardrobe_cabinet", 85},
+  {"whiteboard", 86},
+  {"window", 87},
+  {"wood_board", 88},
+  {"workplace", 89}
+};
 
 ////////////////////////////////////////////////////////////////////////
 // Program arguments
@@ -73,7 +167,6 @@ static RNScalar kinect_stereo_baseline = 0.075;
 
 static int print_verbose = 0;
 static int print_debug = 0;
-
 
 
 ////////////////////////////////////////////////////////////////////////
@@ -139,7 +232,7 @@ ReadScene(char *filename)
   // Remove references and transformations
   scene->RemoveReferences();
   scene->RemoveTransformations();
-  
+
   // Print statistics
   if (print_verbose) {
     printf("Read scene from %s ...\n", filename);
@@ -184,7 +277,7 @@ ReadLights(const char *filename)
   // Return success
   return 1;
 }
-  
+
 
 
 static int
@@ -206,7 +299,7 @@ ReadCategories(const char *filename)
 
   // Return success
   return 1;
-} 
+}
 
 
 
@@ -292,7 +385,7 @@ EstimateGroundY(const R3Camera& camera, R3Scene *scene)
     }
   }
 #endif
-  
+
   // If all else fails, return bounding box ymin
   return scene->BBox().YMin();
 }
@@ -303,7 +396,7 @@ static int
 ComputeBoundaryImage(const R2Grid& depth_image, const R2Grid& node_image,
   const R2Grid& xnormal_image, const R2Grid& ynormal_image, const R2Grid& znormal_image,
   R2Grid& result)
-{                  
+{
   // Find node boundaries
   R2Grid node_boundaries(node_image);
   node_boundaries.GradientMagnitude();
@@ -332,7 +425,7 @@ ComputeBoundaryImage(const R2Grid& depth_image, const R2Grid& node_image,
   R2Grid silhouette_mask(silhouette_boundaries);
   silhouette_mask.Threshold(0.5, 1, 0);
   crease_boundaries.Mask(silhouette_mask);
-    
+
   // Combine boundaries into one image
   result = R2Grid(width, height);
   node_boundaries.Multiply(2);
@@ -355,7 +448,7 @@ ComputeBoundaryImage(const R2Grid& depth_image, const R2Grid& node_image,
 static int
 CaptureColor(R2Image& image)
 {
-  // Capture image 
+  // Capture image
   image.Capture();
 
   // Return success
@@ -368,13 +461,16 @@ static void
 LoadInteger(int value)
 {
   // Set color to represent an integer (24 bits)
-  unsigned char color[4];
+  unsigned char color[3];
   color[0] = (value >> 16) & 0xFF;
   color[1] = (value >>  8) & 0xFF;
   color[2] = (value      ) & 0xFF;
   glColor3ubv(color);
 }
 
+int noah = 0;
+#include <sstream>
+#include <fstream>
 
 
 static int
@@ -385,6 +481,10 @@ CaptureInteger(R2Grid& image)
 
   // Read pixels
   glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+
+  std::stringstream fname_stream;
+  fname_stream << noah++ << ".png";
+  // std::ofstream outfile(fname_stream.str());
 
   // Fill image
   unsigned char *pixelp = pixels;
@@ -398,12 +498,14 @@ CaptureInteger(R2Grid& image)
       value |= green <<  8;
       value |= blue;
       image.SetGridValue(ix, iy, value);
+
+      // outfile << red << ',' << green << ',' << blue << '\n';
     }
   }
 
   // Delete pixels
   delete [] pixels;
-  
+
   // Return success
   return 1;
 }
@@ -428,7 +530,7 @@ CaptureScalar(R2Grid& image, RNScalar max_value = 65535)
 
   // Read blue channel
   glReadPixels(0, 0, width, height, GL_BLUE, GL_FLOAT, pixels);
-  
+
   // Fill image
   float *pixelp = pixels;
   for (int iy = 0; iy < height; iy++) {
@@ -440,14 +542,14 @@ CaptureScalar(R2Grid& image, RNScalar max_value = 65535)
 
   // Delete pixels
   delete [] pixels;
-  
+
   // Return success
   return 1;
 }
 
 
 
-static int 
+static int
 CaptureDepth(R2Grid& image)
 {
   // Get viewport dimensions
@@ -462,7 +564,7 @@ CaptureDepth(R2Grid& image)
   modelview_matrix[5] = 1.0;
   modelview_matrix[10] = 1.0;
   modelview_matrix[15] = 1.0;
-  
+
   // Get projection matrix
   GLdouble projection_matrix[16];
   glGetDoublev(GL_PROJECTION_MATRIX, projection_matrix);
@@ -474,12 +576,12 @@ CaptureDepth(R2Grid& image)
   // Allocate pixels
   float *pixels = new float [ image.NEntries() ];
 
-  // Read pixels from frame buffer 
-  glReadPixels(0, 0, viewport[2], viewport[3], GL_DEPTH_COMPONENT, GL_FLOAT, pixels); 
+  // Read pixels from frame buffer
+  glReadPixels(0, 0, viewport[2], viewport[3], GL_DEPTH_COMPONENT, GL_FLOAT, pixels);
 
   // Resize image
   image.Clear(0.0);
-  
+
   // Convert pixels to depths
   int ix, iy;
   double x, y, z;
@@ -503,8 +605,8 @@ CaptureDepth(R2Grid& image)
 ////////////////////////////////////////////////////////////////////////
 // Draw functions
 ////////////////////////////////////////////////////////////////////////
-
-static void 
+//
+static void
 DrawNodeWithOpenGL(const R3Camera& camera, R3Scene *scene, R3SceneNode *node, int color_scheme, RNBoolean omit_objects = FALSE)
 {
   // Check if should omit object
@@ -538,11 +640,23 @@ DrawNodeWithOpenGL(const R3Camera& camera, R3Scene *scene, R3SceneNode *node, in
         LoadInteger(node->SceneIndex() + 1);
       }
       else if (color_scheme == CATEGORY_COLOR_SCHEME) {
-        const char *model_index = NULL;
+        std::string model_index = "";
         R3SceneNode *ancestor = node;
-        while (!model_index && ancestor) { model_index = ancestor->Info("index"); ancestor = ancestor->Parent(); }
-        if (model_index) LoadInteger(atoi(model_index));
-        else LoadInteger(0);
+        while (model_index.empty() && ancestor)
+        {
+          model_index = ancestor->Info_str("coarse_grained_class");
+          ancestor = ancestor->Parent();
+        }
+
+        if (!model_index.empty())
+        {
+          int class_id = class_map[model_index];
+          LoadInteger(class_id);
+        }
+        else
+        {
+          LoadInteger(0);
+        }
       }
       else if (color_scheme == ROOM_SURFACE_COLOR_SCHEME) {
         if (!node->Name()) LoadInteger(0);
@@ -577,7 +691,7 @@ DrawNodeWithOpenGL(const R3Camera& camera, R3Scene *scene, R3SceneNode *node, in
         element->Draw(R3_SURFACES_DRAW_FLAG);
       }
     }
-    else if ((color_scheme == ANGLE_COLOR_SCHEME) || 
+    else if ((color_scheme == ANGLE_COLOR_SCHEME) ||
       (color_scheme == XNORMAL_COLOR_SCHEME) || (color_scheme == YNORMAL_COLOR_SCHEME) || (color_scheme == ZNORMAL_COLOR_SCHEME)) {
       // Draw integer values per triangle
       for (int i = 0; i < node->NElements(); i++) {
@@ -722,7 +836,7 @@ void Redraw(void)
 
   // Statistics variables
   static RNTime start_time;
-  if (next_image_index == 0) start_time.Read(); 
+  if (next_image_index == 0) start_time.Read();
 
   // Check if we have captured all images
   if (next_image_index >= cameras.NEntries()) {
@@ -736,7 +850,7 @@ void Redraw(void)
 
   // Get camera, name, and node for next image
   char name[1024];
-  sprintf(name, "%06d", next_image_index); 
+  sprintf(name, "%06d", next_image_index);
   R3Camera *camera = cameras.Kth(next_image_index);
   next_image_index++;
 
@@ -770,15 +884,15 @@ void Redraw(void)
 
   // Allocate image for capturing
   R2Grid image(width, height);
-  
-  // Draw, capture, and write depth image 
+
+  // Draw, capture, and write depth image
   if (capture_depth_images) {
     if (DrawSceneWithOpenGL(*camera, scene, NO_COLOR_SCHEME)) {
       image.Clear(0);
       if (CaptureDepth(image)) {
         image.Multiply(1000);
         char output_image_filename[1024];
-        sprintf(output_image_filename, "%s/%s_depth.png", output_image_directory, name);
+        sprintf(output_image_filename, "%s/depth/%s.png", output_image_directory, name);
         image.WriteFile(output_image_filename);
       }
     }
@@ -797,111 +911,111 @@ void Redraw(void)
     }
   }
 #endif
-  
-  // Capture and write height image 
+
+  // Capture and write height image
   if (capture_height_images) {
     if (DrawSceneWithOpenGL(*camera, scene, HEIGHT_COLOR_SCHEME)) {
       image.Clear(0);
       if (CaptureScalar(image)) {
         char output_image_filename[1024];
-        sprintf(output_image_filename, "%s/%s_height.png", output_image_directory, name);
+        sprintf(output_image_filename, "%s/height/%s.png", output_image_directory, name);
         image.WriteFile(output_image_filename);
       }
     }
   }
 
-  // Capture and write angle image 
+  // Capture and write angle image
   if (capture_angle_images) {
     if (DrawSceneWithOpenGL(*camera, scene, ANGLE_COLOR_SCHEME)) {
       image.Clear(0);
       if (CaptureInteger(image)) {
         char output_image_filename[1024];
-        sprintf(output_image_filename, "%s/%s_angle.pfm", output_image_directory, name);
+        sprintf(output_image_filename, "%s/angle/%s.pfm", output_image_directory, name);
         image.WriteFile(output_image_filename);
       }
     }
   }
 
-  // Capture and write ndotv image 
+  // Capture and write ndotv image
   if (capture_ndotv_images) {
     if (DrawSceneWithOpenGL(*camera, scene, NDOTV_COLOR_SCHEME)) {
       image.Clear(0);
       if (CaptureInteger(image)) {
         image.Multiply(65535.0/255.0);
         char output_image_filename[1024];
-        sprintf(output_image_filename, "%s/%s_ndotv.png", output_image_directory, name);
+        sprintf(output_image_filename, "%s/ndotv/%s.png", output_image_directory, name);
         image.WriteFile(output_image_filename);
       }
     }
   }
 
-  // Draw, capture, and write albedo image 
+  // Draw, capture, and write albedo image
   if (capture_albedo_images) {
     if (DrawSceneWithOpenGL(*camera, scene, ALBEDO_COLOR_SCHEME)) {
       R2Image albedo_image(width, height, 3);
       if (CaptureColor(albedo_image)) {
         char output_image_filename[1024];
-        sprintf(output_image_filename, "%s/%s_albedo.jpg", output_image_directory, name);
+        sprintf(output_image_filename, "%s/albedo/%s.jpg", output_image_directory, name);
         albedo_image.Write(output_image_filename);
       }
     }
   }
 
-  // Draw, capture, and write brdf image 
+  // Draw, capture, and write brdf image
   if (capture_brdf_images) {
     if (DrawSceneWithOpenGL(*camera, scene, BRDF_COLOR_SCHEME)) {
       R2Image brdf_image(width, height, 3);
       if (CaptureColor(brdf_image)) {
         char output_image_filename[1024];
-        sprintf(output_image_filename, "%s/%s_brdf.jpg", output_image_directory, name);
+        sprintf(output_image_filename, "%s/brdf/%s.jpg", output_image_directory, name);
         brdf_image.Write(output_image_filename);
       }
     }
   }
 
-  // Capture and write material image 
+  // Capture and write material image
   if (capture_material_images) {
     if (DrawSceneWithOpenGL(*camera, scene, MATERIAL_COLOR_SCHEME)) {
       image.Clear(0);
       if (CaptureInteger(image)) {
         char output_image_filename[1024];
-        sprintf(output_image_filename, "%s/%s_material.png", output_image_directory, name);
+        sprintf(output_image_filename, "%s/material/%s.png", output_image_directory, name);
         image.WriteFile(output_image_filename);
       }
     }
   }
 
-  // Capture and write node image 
+  // Capture and write node image
   if (capture_node_images) {
     if (DrawSceneWithOpenGL(*camera, scene, NODE_COLOR_SCHEME)) {
       image.Clear(0);
       if (CaptureInteger(image)) {
         char output_image_filename[1024];
-        sprintf(output_image_filename, "%s/%s_node.png", output_image_directory, name);
+        sprintf(output_image_filename, "%s/node/%s.png", output_image_directory, name);
         image.WriteFile(output_image_filename);
       }
     }
   }
 
-  // Capture and write category image 
+  // Capture and write category image
   if (capture_category_images) {
     if (DrawSceneWithOpenGL(*camera, scene, CATEGORY_COLOR_SCHEME)) {
       image.Clear(0);
       if (CaptureInteger(image)) {
         char output_image_filename[1024];
-        sprintf(output_image_filename, "%s/%s_category.png", output_image_directory, name);
+        sprintf(output_image_filename, "%s/category/%s.pfm", output_image_directory, name);
         image.WriteFile(output_image_filename);
       }
     }
   }
 
-  // Capture and write room_surface image 
+  // Capture and write room_surface image
   if (capture_room_surface_images) {
     if (DrawSceneWithOpenGL(*camera, scene, ROOM_SURFACE_COLOR_SCHEME, TRUE)) {
       image.Clear(0);
       if (CaptureInteger(image)) {
         char output_image_filename[1024];
-        sprintf(output_image_filename, "%s/%s_room_surface.png", output_image_directory, name);
+        sprintf(output_image_filename, "%s/room_surface/%s.png", output_image_directory, name);
         image.WriteFile(output_image_filename);
       }
     }
@@ -910,21 +1024,21 @@ void Redraw(void)
   // Draw, capture, and write normal images
   if (capture_normal_images) {
     char output_image_filename[1024];
-    sprintf(output_image_filename, "%s/%s_xnormal.png", output_image_directory, name);
+    sprintf(output_image_filename, "%s/xnormal/%s.png", output_image_directory, name);
     DrawSceneWithOpenGL(*camera, scene, XNORMAL_COLOR_SCHEME);
     if (!CaptureInteger(image)) return;
     image.WriteFile(output_image_filename);
-    sprintf(output_image_filename, "%s/%s_ynormal.png", output_image_directory, name);
+    sprintf(output_image_filename, "%s/ynormal/%s.png", output_image_directory, name);
     DrawSceneWithOpenGL(*camera, scene, YNORMAL_COLOR_SCHEME);
     if (!CaptureInteger(image)) return;
     image.WriteFile(output_image_filename);
-    sprintf(output_image_filename, "%s/%s_znormal.png", output_image_directory, name);
+    sprintf(output_image_filename, "%s/znormal/%s.png", output_image_directory, name);
     DrawSceneWithOpenGL(*camera, scene, ZNORMAL_COLOR_SCHEME);
     if (!CaptureInteger(image)) return;
     image.WriteFile(output_image_filename);
   }
-  
-  // Capture and write boundary image 
+
+  // Capture and write boundary image
   if (capture_boundary_images) {
     image.Clear(0);
     R2Grid node_image(width, height);
@@ -934,19 +1048,19 @@ void Redraw(void)
     CaptureInteger(node_image);
     CaptureDepth(depth_image);
     DrawSceneWithOpenGL(*camera, scene, XNORMAL_COLOR_SCHEME);
-    CaptureInteger(xnormal_image); xnormal_image.Multiply(1.0/65535.0); xnormal_image.Subtract(0.5); xnormal_image.Multiply(2.0); 
+    CaptureInteger(xnormal_image); xnormal_image.Multiply(1.0/65535.0); xnormal_image.Subtract(0.5); xnormal_image.Multiply(2.0);
     DrawSceneWithOpenGL(*camera, scene, YNORMAL_COLOR_SCHEME);
-    CaptureInteger(ynormal_image); ynormal_image.Multiply(1.0/65535.0); ynormal_image.Subtract(0.5); ynormal_image.Multiply(2.0); 
+    CaptureInteger(ynormal_image); ynormal_image.Multiply(1.0/65535.0); ynormal_image.Subtract(0.5); ynormal_image.Multiply(2.0);
     DrawSceneWithOpenGL(*camera, scene, ZNORMAL_COLOR_SCHEME);
-    CaptureInteger(znormal_image); znormal_image.Multiply(1.0/65535.0); znormal_image.Subtract(0.5); znormal_image.Multiply(2.0); 
+    CaptureInteger(znormal_image); znormal_image.Multiply(1.0/65535.0); znormal_image.Subtract(0.5); znormal_image.Multiply(2.0);
     if (ComputeBoundaryImage(depth_image, node_image, xnormal_image, ynormal_image, znormal_image, image)) {
       char output_image_filename[1024];
-      sprintf(output_image_filename, "%s/%s_boundary.png", output_image_directory, name);
+      sprintf(output_image_filename, "%s/boundary/%s.png", output_image_directory, name);
       image.WriteFile(output_image_filename);
     }
   }
 
-  // Capture and write room boundary image 
+  // Capture and write room boundary image
   if (capture_room_boundary_images) {
     image.Clear(0);
     R2Grid node_image(width, height);
@@ -956,19 +1070,19 @@ void Redraw(void)
     CaptureInteger(node_image);
     CaptureDepth(depth_image);
     DrawSceneWithOpenGL(*camera, scene, XNORMAL_COLOR_SCHEME, TRUE);
-    CaptureInteger(xnormal_image); xnormal_image.Multiply(1.0/65535.0); xnormal_image.Subtract(0.5); xnormal_image.Multiply(2.0); 
+    CaptureInteger(xnormal_image); xnormal_image.Multiply(1.0/65535.0); xnormal_image.Subtract(0.5); xnormal_image.Multiply(2.0);
     DrawSceneWithOpenGL(*camera, scene, YNORMAL_COLOR_SCHEME, TRUE);
-    CaptureInteger(ynormal_image); ynormal_image.Multiply(1.0/65535.0); ynormal_image.Subtract(0.5); ynormal_image.Multiply(2.0); 
+    CaptureInteger(ynormal_image); ynormal_image.Multiply(1.0/65535.0); ynormal_image.Subtract(0.5); ynormal_image.Multiply(2.0);
     DrawSceneWithOpenGL(*camera, scene, ZNORMAL_COLOR_SCHEME, TRUE);
-    CaptureInteger(znormal_image); znormal_image.Multiply(1.0/65535.0); znormal_image.Subtract(0.5); znormal_image.Multiply(2.0); 
+    CaptureInteger(znormal_image); znormal_image.Multiply(1.0/65535.0); znormal_image.Subtract(0.5); znormal_image.Multiply(2.0);
     if (ComputeBoundaryImage(depth_image, node_image, xnormal_image, ynormal_image, znormal_image, image)) {
       char output_image_filename[1024];
-      sprintf(output_image_filename, "%s/%s_room_boundary.png", output_image_directory, name);
+      sprintf(output_image_filename, "%s/room_boundary/%s.png", output_image_directory, name);
       image.WriteFile(output_image_filename);
     }
   }
 
-  // Draw, capture, and write simulated kinect depth image 
+  // Draw, capture, and write simulated kinect depth image
   if (capture_kinect_images) {
     // Capture depth and ndotv
     R2Grid depth_image(width, height);
@@ -981,7 +1095,7 @@ void Redraw(void)
     // Add noise
     depth_image.AddNoise(kinect_noise_fraction);
     ndotv_image.AddNoise(kinect_noise_fraction);
-    
+
     // Capture brdf information
     R2Grid material_image(width, height);
     DrawSceneWithOpenGL(*camera, scene, MATERIAL_COLOR_SCHEME);
@@ -991,7 +1105,7 @@ void Redraw(void)
     double ixc = 0.5 * width;  // x coordinate on center of image in image coordinates
     double ixr = 0.5 * width;  // x coordinate on right side of image in image coordinates
     double vxr = tan(camera->XFOV()); // x coordinate on right side of image on view plane at d=1m in camera coordinates
-    
+
     // Create kinect image
     R2Grid kinect_image(width, height);
     for (int ix = 0; ix < width; ix++) {
@@ -1006,13 +1120,13 @@ void Redraw(void)
         if (kinect_min_reflection > 0) {
           // Get/check angle
           RNScalar ndotv = ndotv_image.GridValue(ix, iy);
-          if (ndotv < kinect_min_reflection) continue; 
+          if (ndotv < kinect_min_reflection) continue;
 
           // Get/check material
           RNScalar material_index_value = material_image.GridValue(ix, iy);
           int material_index = (int) (material_index_value - 1.0 + 0.5);
           if (material_index < 0) continue;
-          if (material_index >= scene->NMaterials()) continue; 
+          if (material_index >= scene->NMaterials()) continue;
           const R3Material *material = scene->Material(material_index);
           const R3Brdf *brdf = material->Brdf();
           if (!brdf) continue;
@@ -1040,7 +1154,7 @@ void Redraw(void)
           for (int ix2 = ix+1; ix2 < width; ix2++) {
             RNScalar depth2 = depth_image.GridValue(ix2, iy);
             if (depth2 > 0) {
-              double x2 = depth2 * vxr * (ix2 - ixc) / ixr; 
+              double x2 = depth2 * vxr * (ix2 - ixc) / ixr;
               if (R2Contains(h, R2Point(x2, depth2))) {
                 kinect_image.SetGridValue(ix, iy, 0);
                 break;
@@ -1054,17 +1168,17 @@ void Redraw(void)
     // Write kinect image
     kinect_image.Multiply(1000);
     char output_image_filename[1024];
-    sprintf(output_image_filename, "%s/%s_kinect.png", output_image_directory, name);
+    sprintf(output_image_filename, "%s/kinect/%s.png", output_image_directory, name);
     kinect_image.WriteFile(output_image_filename);
   }
 
-  // Draw, capture, and write color image 
+  // Draw, capture, and write color image
   if (capture_color_images) {
     if (DrawSceneWithOpenGL(*camera, scene, RGB_COLOR_SCHEME)) {
       R2Image color_image(width, height, 3);
       if (CaptureColor(color_image)) {
         char output_image_filename[1024];
-        sprintf(output_image_filename, "%s/%s_color.jpg", output_image_directory, name);
+        sprintf(output_image_filename, "%s/color/%s.jpg", output_image_directory, name);
         color_image.Write(output_image_filename);
       }
     }
@@ -1074,6 +1188,14 @@ void Redraw(void)
   // Redraw
   glutPostRedisplay();
 #endif
+}
+
+void make_dir(const std::string& dirname)
+{
+  if (!std::experimental::filesystem::is_directory(dirname) || !std::experimental::filesystem::exists(dirname))
+  {
+    std::experimental::filesystem::create_directory(dirname);
+  }
 }
 
 
@@ -1093,6 +1215,24 @@ RenderImagesWithGlut(const char *output_image_directory)
   sprintf(cmd, "mkdir -p %s", output_image_directory);
   system(cmd);
 
+  auto imgdir = std::experimental::filesystem::path(output_image_directory);
+
+  if (capture_color_images) make_dir(imgdir / "color");
+  if (capture_depth_images) make_dir(imgdir / "depth");
+  if (capture_kinect_images) make_dir(imgdir / "kinect");
+  if (capture_height_images) make_dir(imgdir / "height");
+  if (capture_angle_images) make_dir(imgdir / "angle");
+  if (capture_normal_images) make_dir(imgdir / "normal");
+  if (capture_ndotv_images) make_dir(imgdir / "ndotv");
+  if (capture_albedo_images) make_dir(imgdir / "albedo");
+  if (capture_brdf_images) make_dir(imgdir / "brdf");
+  if (capture_material_images) make_dir(imgdir / "material");
+  if (capture_node_images) make_dir(imgdir / "node");
+  if (capture_category_images) make_dir(imgdir / "category");
+  if (capture_boundary_images) make_dir(imgdir / "boundary");
+  if (capture_room_surface_images) make_dir(imgdir / "room_surface");
+  if (capture_room_boundary_images) make_dir(imgdir / "room_boundary");
+
   // Open window
   int argc = 1;
   char *argv[1];
@@ -1100,13 +1240,13 @@ RenderImagesWithGlut(const char *output_image_directory)
   glutInit(&argc, argv);
   glutInitWindowPosition(100, 100);
   glutInitWindowSize(width, height);
-  glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB | GLUT_DEPTH); 
+  glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB | GLUT_DEPTH);
   glutCreateWindow("Scene Image Capture");
 
-  // Initialize GLUT callback functions 
+  // Initialize GLUT callback functions
   glutDisplayFunc(Redraw);
 
-  // Run main loop  -- never returns 
+  // Run main loop  -- never returns
   glutMainLoop();
 
   // Return success -- actually never gets here
@@ -1157,7 +1297,7 @@ RenderImagesWithMesa(const char *output_image_directory)
 
   // Draw images
   while (TRUE) Redraw();
-  
+
   // Delete mesa context
   OSMesaDestroyContext(ctx);
 
@@ -1187,7 +1327,7 @@ RenderImagesWithRaycasting(const R3Camera& camera, R3Scene *scene, const char *o
     printf("  Raycasting %06d ...\n", image_index);
     fflush(stdout);
   }
- 
+
   // Some useful variables
   RNScalar ground_y = EstimateGroundY(camera, scene);
   R2Viewport viewport(0, 0, width, height);
@@ -1213,7 +1353,7 @@ RenderImagesWithRaycasting(const R3Camera& camera, R3Scene *scene, const char *o
   R2Grid material_image(width, height);
   R2Grid node_image(width, height);
   R2Grid category_image(width, height);
-  
+
   // Cast ray for every pixel
   for (int iy = 0; iy < height; iy++) {
     for (int ix = 0; ix < width; ix++) {
@@ -1265,51 +1405,51 @@ RenderImagesWithRaycasting(const R3Camera& camera, R3Scene *scene, const char *o
           while (!model_index && ancestor) { model_index = ancestor->Info("index"); ancestor = ancestor->Parent(); }
           if (model_index) category_image.SetGridValue(ix, iy, atoi(model_index));
           else category_image.SetGridValue(ix, iy, 0);
-                                                       
+
         }
       }
     }
   }
-  
+
   // Write images
   if (capture_depth_images) {
-    sprintf(output_image_filename, "%s/%06d_depth.png", output_image_directory, image_index);
+    sprintf(output_image_filename, "%s/depth/%06d.png", output_image_directory, image_index);
     depth_image.WriteFile(output_image_filename);
   }
   if (capture_height_images) {
-    sprintf(output_image_filename, "%s/%06d_height.png", output_image_directory, image_index);
+    sprintf(output_image_filename, "%s/height/%06d.png", output_image_directory, image_index);
     height_image.WriteFile(output_image_filename);
   }
   if (capture_angle_images) {
-    sprintf(output_image_filename, "%s/%06d_angle.png", output_image_directory, image_index);
+    sprintf(output_image_filename, "%s/angle/%06d.png", output_image_directory, image_index);
     angle_image.WriteFile(output_image_filename);
   }
   if (capture_normal_images) {
-    sprintf(output_image_filename, "%s/%06d_xnormal.png", output_image_directory, image_index);
+    sprintf(output_image_filename, "%s/xnormal/%06d.png", output_image_directory, image_index);
     xnormal_image.WriteFile(output_image_filename);
-    sprintf(output_image_filename, "%s/%06d_ynormal.png", output_image_directory, image_index);
+    sprintf(output_image_filename, "%s/ynormal/%06d.png", output_image_directory, image_index);
     ynormal_image.WriteFile(output_image_filename);
-    sprintf(output_image_filename, "%s/%06d_znormal.png", output_image_directory, image_index);
+    sprintf(output_image_filename, "%s/znormal/%06d.png", output_image_directory, image_index);
     znormal_image.WriteFile(output_image_filename);
   }
   if (capture_ndotv_images) {
-    sprintf(output_image_filename, "%s/%06d_ndotv.png", output_image_directory, image_index);
+    sprintf(output_image_filename, "%s/ndotv/%06d.png", output_image_directory, image_index);
     ndotv_image.WriteFile(output_image_filename);
   }
   if (capture_brdf_images) {
-    sprintf(output_image_filename, "%s/%06d_brdf.jpg", output_image_directory, image_index);
+    sprintf(output_image_filename, "%s/brdf/%06d.jpg", output_image_directory, image_index);
     brdf_image.Write(output_image_filename);
   }
   if (capture_material_images) {
-    sprintf(output_image_filename, "%s/%06d_material.png", output_image_directory, image_index);
+    sprintf(output_image_filename, "%s/material/%06d.png", output_image_directory, image_index);
     material_image.WriteFile(output_image_filename);
   }
   if (capture_node_images) {
-    sprintf(output_image_filename, "%s/%06d_node.png", output_image_directory, image_index);
+    sprintf(output_image_filename, "%s/node/%06d.png", output_image_directory, image_index);
     node_image.WriteFile(output_image_filename);
   }
   if (capture_category_images) {
-    sprintf(output_image_filename, "%s/%06d_category.png", output_image_directory, image_index);
+    sprintf(output_image_filename, "%s/category/%06d.png", output_image_directory, image_index);
     node_image.WriteFile(output_image_filename);
   }
 
@@ -1324,12 +1464,12 @@ RenderImagesWithRaycasting(const char *output_image_directory)
 {
   // Statistics variables
   static RNTime start_time;
-  start_time.Read(); 
+  start_time.Read();
   if (print_verbose) {
     printf("Rendering images with RAYCASTING to %s\n", output_image_directory);
     fflush(stdout);
   }
-  
+
   // Create output directory
   char cmd[1024];
   sprintf(cmd, "mkdir -p %s", output_image_directory);
@@ -1375,12 +1515,12 @@ RenderImages(const char *output_image_directory)
 // Program argument parsing
 ////////////////////////////////////////////////////////////////////////
 
-static int 
+static int
 ParseArgs(int argc, char **argv)
 {
   // Initialize variables to track whether to assign defaults
   int capture_images = 0;
-  
+
   // Parse arguments
   argc--; argv++;
   while (argc > 0) {
@@ -1461,7 +1601,7 @@ ParseArgs(int argc, char **argv)
     return 0;
   }
 
-  // Return OK status 
+  // Return OK status
   return 1;
 }
 
@@ -1479,7 +1619,7 @@ int main(int argc, char **argv)
   // Read scene
   if (!ReadScene(input_scene_name)) exit(-1);
 
-  // Read cameras 
+  // Read cameras
   if (!ReadCameras(input_cameras_name)) exit(-1);
 
   // Read categories
@@ -1494,7 +1634,7 @@ int main(int argc, char **argv)
   // Render images
   if (!RenderImages(output_image_directory)) exit(-1);
 
-  // Return success 
+  // Return success
   return 0;
 }
 
