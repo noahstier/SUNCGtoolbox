@@ -41,7 +41,7 @@ EXE = $(EXE_DIR)/$(NAME)
 
 BASE_LDFLAGS=$(USER_LDFLAGS) -L$(LIB_DIR)
 DEBUG_LDFLAGS=$(BASE_LDFLAGS) -g
-OPT_LDFLAGS=$(BASE_LDFLAGS) -O 
+OPT_LDFLAGS=$(BASE_LDFLAGS) -O
 LDFLAGS=$(DEBUG_LDFLAGS)
 
 
@@ -58,7 +58,7 @@ else
 #OPENGL_LIBS=-lglut -lGLU -lGL -lX11 -lm
 OPENGL_LIBS=-lfglut -lGLU -lGL -lX11 -lm
 endif
-LIBS=$(PKG_LIBS) $(USER_LIBS) $(OPENGL_LIBS)
+LIBS=$(PKG_LIBS) $(USER_LIBS) $(OPENGL_LIBS) -lstdc++fs
 
 
 
@@ -77,7 +77,7 @@ mesa:
 
 $(EXE):	    $(OBJS) $(LIB_DIR)/*.a
 	    mkdir -p $(EXE_DIR)
-	    $(CC) -o $(EXE) $(LDFLAGS) $(USER_OBJS) $(OBJS) $(LIBS)
+	    $(CC) -o $(EXE) $(USER_OBJS) $(OBJS) $(LDFLAGS) $(LIBS)
 
 release:
 	    mkdir -p $(RELEASE_DIR)/apps

@@ -29,6 +29,7 @@ public:
   const R3Affine& Transformation(void) const;
   const char *Name(void) const;
   const char *Info(const char *key) const;
+  std::string Info_str(const char *key) const;
   void *Data(void) const;
 
   // More property functions
@@ -211,6 +212,14 @@ Name(void) const
   return name;
 }
 
+inline std::string R3SceneNode::
+Info_str(const char *key) const
+{
+  // Return info associated with key
+  std::string value;
+  if (!info.Find(key, &value)) return "";
+  return value;
+}
 
 
 inline const char *R3SceneNode::

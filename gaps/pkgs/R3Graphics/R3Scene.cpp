@@ -5,6 +5,7 @@
 /* Include files */
 
 #include "R3Graphics.h"
+#include <iostream>
 
 
 
@@ -3423,7 +3424,6 @@ CreateBox(R3Scene *scene, R3SceneNode *node,
 }
 
 
-
 int R3Scene::
 ReadSUNCGFile(const char *filename, R3SceneNode *parent_node)
 {
@@ -3724,8 +3724,14 @@ ReadSUNCGFile(const char *filename, R3SceneNode *parent_node)
               if ((node_index >= 0) && ((unsigned int) node_index < json_nodes->size())) {
                 R3SceneNode *node = created_nodes[node_index];
                 if (node) {
-                  level_node->RemoveChild(node);
-                  room_node->InsertChild(node); 
+
+                  // an object cannot be duplicated across multiple rooms
+                  // ideally it could be
+                  if (node->parent == level_node)
+                  {
+                    level_node->RemoveChild(node);
+                    room_node->InsertChild(node); 
+                  }
                 }
               }
             }
