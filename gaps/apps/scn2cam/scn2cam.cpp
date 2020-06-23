@@ -3,18 +3,19 @@
 
 
 ////////////////////////////////////////////////////////////////////////
-// Include files 
+// Include files
 ////////////////////////////////////////////////////////////////////////
 
 #include "R3Graphics/R3Graphics.h"
 #ifdef USE_MESA
 #  include "GL/osmesa.h"
 #else
-#  include "fglut/fglut.h" 
+#  include "fglut/fglut.h"
 #  define USE_GLUT
 #endif
 
 
+#include <iostream>
 
 ////////////////////////////////////////////////////////////////////////
 // Program variables
@@ -46,7 +47,7 @@ static int width = 640;
 static int height = 480;
 static double xfov = 0.5; // half-angle in radians
 static double eye_height = 1.55;
-static double eye_height_radius = 0.05;
+static double eye_height_radius = 0.25;
 
 
 // Camera sampling variables
@@ -178,7 +179,7 @@ ReadCategories(const char *filename)
 
   // Return success
   return 1;
-} 
+}
 
 
 
@@ -301,8 +302,8 @@ WriteCameraExtrinsics(const char *filename)
     const R3CoordSystem& cs = camera->CoordSystem();
     R4Matrix matrix = cs.Matrix();
     fprintf(fp, "%g %g %g %g   %g %g %g %g  %g %g %g %g\n",
-      matrix[0][0], matrix[0][1], matrix[0][2], matrix[0][3], 
-      matrix[1][0], matrix[1][1], matrix[1][2], matrix[1][3], 
+      matrix[0][0], matrix[0][1], matrix[0][2], matrix[0][3],
+      matrix[1][0], matrix[1][1], matrix[1][2], matrix[1][3],
       matrix[2][0], matrix[2][1], matrix[2][2], matrix[2][3]);
   }
 
@@ -442,22 +443,22 @@ WriteNodeNames(const char *filename)
 static int
 WriteCameras(void)
 {
-  // Write cameras 
+  // Write cameras
   if (output_cameras_filename) {
     if (!WriteCameras(output_cameras_filename)) exit(-1);
   }
-  
-  // Write camera extrinsics 
+
+  // Write camera extrinsics
   if (output_camera_extrinsics_filename) {
     if (!WriteCameraExtrinsics(output_camera_extrinsics_filename)) exit(-1);
   }
-  
-  // Write camera intrinsics 
+
+  // Write camera intrinsics
   if (output_camera_intrinsics_filename) {
     if (!WriteCameraIntrinsics(output_camera_intrinsics_filename)) exit(-1);
   }
 
-  // Write camera names 
+  // Write camera names
   if (output_camera_names_filename) {
     if (!WriteCameraNames(output_camera_names_filename)) exit(-1);
   }
@@ -481,7 +482,7 @@ WriteCameras(void)
 static int
 CaptureColor(R2Image& image)
 {
-  // Capture image 
+  // Capture image
   image.Capture();
 
   // Return success
@@ -512,7 +513,7 @@ CaptureScalar(R2Grid& scalar_image)
 
   // Delete rgb pixels
   delete [] pixels;
-  
+
   // Return success
   return 1;
 }
@@ -520,7 +521,7 @@ CaptureScalar(R2Grid& scalar_image)
 
 
 #if 0
-static int 
+static int
 CaptureDepth(R2Grid& image)
 {
   // Get viewport dimensions
@@ -535,7 +536,7 @@ CaptureDepth(R2Grid& image)
   modelview_matrix[5] = 1.0;
   modelview_matrix[10] = 1.0;
   modelview_matrix[15] = 1.0;
-  
+
   // Get projection matrix
   GLdouble projection_matrix[16];
   glGetDoublev(GL_PROJECTION_MATRIX, projection_matrix);
@@ -547,12 +548,12 @@ CaptureDepth(R2Grid& image)
   // Allocate pixels
   float *pixels = new float [ image.NEntries() ];
 
-  // Read pixels from frame buffer 
-  glReadPixels(0, 0, viewport[2], viewport[3], GL_DEPTH_COMPONENT, GL_FLOAT, pixels); 
+  // Read pixels from frame buffer
+  glReadPixels(0, 0, viewport[2], viewport[3], GL_DEPTH_COMPONENT, GL_FLOAT, pixels);
 
   // Resize image
   image.Clear(0.0);
-  
+
   // Convert pixels to depths
   int ix, iy;
   double x, y, z;
@@ -574,7 +575,7 @@ CaptureDepth(R2Grid& image)
 
 
 
-static void 
+static void
 DrawNodeWithOpenGL(R3Scene *scene, R3SceneNode *node, R3SceneNode *selected_node, int image_type)
 {
   // Set color based on node index
@@ -588,7 +589,7 @@ DrawNodeWithOpenGL(R3Scene *scene, R3SceneNode *node, R3SceneNode *selected_node
     color[2] = (node_index      ) & 0xFF;
     glColor3ubv(color);
   }
-  
+
   // Draw elements
   if (!selected_node || (selected_node == node)) {
     for (int i = 0; i < node->NElements(); i++) {
@@ -597,7 +598,7 @@ DrawNodeWithOpenGL(R3Scene *scene, R3SceneNode *node, R3SceneNode *selected_node
     }
   }
 
-  // Draw references 
+  // Draw references
   if (!selected_node || (selected_node == node)) {
     for (int i = 0; i < node->NReferences(); i++) {
       R3SceneReference *reference = node->Reference(i);
@@ -615,7 +616,7 @@ DrawNodeWithOpenGL(R3Scene *scene, R3SceneNode *node, R3SceneNode *selected_node
 
 
 
-static void 
+static void
 RenderImageWithOpenGL(R2Grid& image, const R3Camera& camera, R3Scene *scene, R3SceneNode *root_node, R3SceneNode *selected_node, int image_type)
 {
   // Clear window
@@ -630,7 +631,7 @@ RenderImageWithOpenGL(R2Grid& image, const R3Camera& camera, R3Scene *scene, R3S
   camera.Load();
   glViewport(0, 0, width, height);
 
-  // Initialize graphics modes  
+  // Initialize graphics modes
   glEnable(GL_DEPTH_TEST);
 
   // Draw scene
@@ -680,7 +681,7 @@ RenderImageWithRayCasting(R2Grid& image, const R3Camera& camera, R3Scene *scene,
   }
 }
 
-  
+
 
 ////////////////////////////////////////////////////////////////////////
 // Image capture functions
@@ -757,7 +758,7 @@ ObjectCoverageScore(const R3Camera& camera, R3Scene *scene, R3SceneNode *node)
     // Check total area
     if (RNIsZero(total_area)) return 0;
 
-    // Generate points 
+    // Generate points
     for (int i = 0; i < node->NElements(); i++) {
       R3SceneElement *element = node->Element(i);
       for (int j = 0; j < element->NShapes(); j++) {
@@ -827,9 +828,9 @@ SceneCoverageScore(const R3Camera& camera, R3Scene *scene, R3SceneNode *room_nod
   // Allocate buffer for counting visible pixels of nodes
   int *node_pixel_counts = new int [ scene->NNodes() ];
   for (int i = 0; i < scene->NNodes(); i++) node_pixel_counts[i] = 0;
-  
+
   // Log counts of pixels visible on each node
-  for (int i = 0; i < image.NEntries(); i++) {      
+  for (int i = 0; i < image.NEntries(); i++) {
     RNScalar value = image.GridValue(i);
     if (value == R2_GRID_UNKNOWN_VALUE) continue;
     int node_index = (int) (value + 0.5);
@@ -872,7 +873,7 @@ RasterizeIntoZXGrid(R2Grid& grid, R3SceneNode *node,
   // Check bounding box
   R3Box node_bbox = node->BBox();
   if (!R3Intersects(world_bbox, node_bbox)) return;
-  
+
   // Rasterize elements into grid
   for (int j = 0; j < node->NElements(); j++) {
     R3SceneElement *element = node->Element(j);
@@ -914,9 +915,9 @@ RasterizeIntoZXGrid(R2Grid& grid, R3SceneNode *node,
 
 
 static int
-ComputeViewpointMask(R3SceneNode *room_node, R2Grid& mask) 
+ComputeViewpointMask(R3SceneNode *room_node, R2Grid& mask)
 {
-  // Get/check room, wall, floor, and ceiling nodes 
+  // Get/check room, wall, floor, and ceiling nodes
   if (!room_node) return 0;
   if (!room_node->Name()) return 0;
   if (strncmp(room_node->Name(), "Room#", 5)) return 0;
@@ -969,7 +970,7 @@ ComputeViewpointMask(R3SceneNode *room_node, R2Grid& mask)
     if (node->NChildren() > 0) continue;
     RasterizeIntoZXGrid(object_mask, node, object_bbox);
   }
-  
+
   // Reverse object mask to by 1 in areas not occupied by objects
   object_mask.Threshold(0.5, 1, 0);
 
@@ -981,7 +982,7 @@ ComputeViewpointMask(R3SceneNode *room_node, R2Grid& mask)
   // Combine the two masks
   mask = floor_mask;
   mask.Mask(object_mask);
-  
+
 #if 0
   // Debugging
   char buffer[4096];
@@ -992,7 +993,7 @@ ComputeViewpointMask(R3SceneNode *room_node, R2Grid& mask)
   sprintf(buffer, "%s_mask.jpg", room_node->Name());
   mask.WriteFile(buffer);
 #endif
-  
+
   // Return success
   return 1;
 }
@@ -1016,7 +1017,7 @@ CreateObjectCameras(void)
   RNScalar fardist = 100 * scene->BBox().DiagonalRadius();
   RNScalar aspect = (RNScalar) height / (RNScalar) width;
   RNAngle yfov = atan(aspect * tan(xfov));
-  
+
   // Create camera with close up view of each object
   for (int i = 0; i < scene->NNodes(); i++) {
     R3SceneNode *node = scene->Node(i);
@@ -1034,7 +1035,7 @@ CreateObjectCameras(void)
     RNScalar angle_spacing = (nangles > 1) ? RN_TWO_PI / nangles : RN_TWO_PI;
     for (int j = 0; j < nangles; j++) {
       // Determine view direction
-      R3Vector view_direction(-1, 0, 0); 
+      R3Vector view_direction(-1, 0, 0);
       view_direction.YRotate((j+RNRandomScalar()) * angle_spacing);
       view_direction.Normalize();
 
@@ -1079,7 +1080,7 @@ CreateObjectCameras(void)
       camera.SetValue(ObjectCoverageScore(camera, scene, node));
       if (camera.Value() == 0) continue;
       if (camera.Value() < min_score) continue;
-                            
+
       // Remember best camera
       if (camera.Value() > best_camera.Value()) {
         best_camera = camera;
@@ -1109,7 +1110,6 @@ CreateObjectCameras(void)
 }
 
 
-
 static void
 CreateRoomCameras(void)
 {
@@ -1124,7 +1124,9 @@ CreateRoomCameras(void)
   RNScalar aspect = (RNScalar) height / (RNScalar) width;
   RNAngle yfov = atan(aspect * tan(xfov));
 
-  // Create one camera per direction per room 
+  bool Success = false;
+
+  // Create one camera per direction per room
   for (int i = 0; i < scene->NNodes(); i++) {
     R3SceneNode *room_node = scene->Node(i);
     if (!room_node->Name()) continue;
@@ -1134,6 +1136,8 @@ CreateRoomCameras(void)
     R2Grid viewpoint_mask;
     if (!ComputeViewpointMask(room_node, viewpoint_mask)) continue;
 
+    Success = true;
+
     // Sample directions
     int nangles = (int) (RN_TWO_PI / angle_sampling + 0.5);
     RNScalar angle_spacing = (nangles > 1) ? RN_TWO_PI / nangles : RN_TWO_PI;
@@ -1141,7 +1145,7 @@ CreateRoomCameras(void)
       // Choose one camera for each direction in each room
       R3Camera best_camera;
 
-      // Sample positions 
+      // Sample positions
       R3Box room_bbox = room_node->BBox();
       for (RNScalar z = room_bbox.ZMin(); z < room_bbox.ZMax(); z += position_sampling) {
         for (RNScalar x = room_bbox.XMin(); x < room_bbox.XMax(); x += position_sampling) {
@@ -1149,7 +1153,7 @@ CreateRoomCameras(void)
           R2Point position(x + position_sampling*RNRandomScalar(), z + position_sampling*RNRandomScalar());
 
           // Check viewpoint mask
-          R2Point viewpoint_mask_position(position[1], position[0]); // ZX          
+          R2Point viewpoint_mask_position(position[1], position[0]); // ZX
           RNScalar viewpoint_mask_value = viewpoint_mask.WorldValue(viewpoint_mask_position);
           if (viewpoint_mask_value < 0.5) continue;
 
@@ -1196,8 +1200,12 @@ CreateRoomCameras(void)
         camera_count++;
       }
     }
+    if (Success)
+    {
+      break;
+    }
   }
-        
+
   // Print statistics
   if (print_verbose) {
     printf("Created room cameras ...\n");
@@ -1242,7 +1250,7 @@ CreateWorldInHandCameras(void)
     if (angle_ncameras > ncameras) ncameras = angle_ncameras;
   }
   if (ncameras == 0) ncameras = 1024;
-  
+
   // Create cameras at random directions from viewpoint sphere looking at centroid
   for (int i = 0; i < ncameras; i++) {
     // Compute view directions
@@ -1297,7 +1305,7 @@ InterpolateCameraTrajectory(RNLength trajectory_step = 0.1)
   RNLength yf = cameras.Head()->YFOV();
   RNLength neardist = cameras.Head()->Near();
   RNLength fardist = cameras.Head()->Far();
-  
+
   // Create spline data
   int nkeypoints = cameras.NEntries();
   R3Point *viewpoint_keypoints =  new R3Point [ nkeypoints ];
@@ -1321,7 +1329,7 @@ InterpolateCameraTrajectory(RNLength trajectory_step = 0.1)
   // Delete cameras
   for (int i = 0; i < cameras.NEntries(); i++) delete cameras[i];
   cameras.Empty();
-  
+
   // Resample splines
   for (RNScalar u = viewpoint_spline.StartParameter(); u <= viewpoint_spline.EndParameter(); u += trajectory_step) {
     R3Point viewpoint = viewpoint_spline.PointPosition(u);
@@ -1422,13 +1430,13 @@ CreateAndWriteCamerasWithGlut(void)
   glutInit(&argc, argv);
   glutInitWindowPosition(100, 100);
   glutInitWindowSize(width, height);
-  glutInitDisplayMode(GLUT_SINGLE | GLUT_RGBA | GLUT_DEPTH); 
+  glutInitDisplayMode(GLUT_SINGLE | GLUT_RGBA | GLUT_DEPTH);
   glutCreateWindow("Scene Camera Creation");
 
-  // Initialize GLUT callback functions 
+  // Initialize GLUT callback functions
   glutDisplayFunc(CreateAndWriteCameras);
 
-  // Run main loop  -- never returns 
+  // Run main loop  -- never returns
   glutMainLoop();
 
   // Return success -- actually never gets here
@@ -1490,13 +1498,13 @@ CreateAndWriteCamerasWithMesa(void)
 // Program argument parsing
 ////////////////////////////////////////////////////////////////////////
 
-static int 
+static int
 ParseArgs(int argc, char **argv)
 {
   // Initialize variables to track whether to assign defaults
   int create_cameras = 0;
   int output = 0;
-  
+
   // Parse arguments
   argc--; argv++;
   while (argc > 0) {
@@ -1562,7 +1570,7 @@ ParseArgs(int argc, char **argv)
     return 0;
   }
 
-  // Return OK status 
+  // Return OK status
   return 1;
 }
 
@@ -1590,12 +1598,12 @@ int main(int argc, char **argv)
     if (!ReadCategories(input_categories_filename)) exit(-1);
   }
 
-  // Create and write new cameras 
+  // Create and write new cameras
   if (mesa) CreateAndWriteCamerasWithMesa();
   else if (glut) CreateAndWriteCamerasWithGlut();
   else CreateAndWriteCameras();
 
-  // Return success 
+  // Return success
   return 0;
 }
 
