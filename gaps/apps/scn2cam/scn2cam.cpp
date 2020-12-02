@@ -1424,6 +1424,10 @@ InterpolateCameraTrajectory(RNLength trajectory_step = 0.1)
   start_time.Read();
 
   for (int room = 0; room < cameras.size(); room++) {
+    if (cameras.at(room).NEntries() < 2)
+    {
+      continue;
+    }
      // Set some camera parameters based on first camera
      RNLength xf = cameras.at(room).Head()->XFOV();
      RNLength yf = cameras.at(room).Head()->YFOV();
