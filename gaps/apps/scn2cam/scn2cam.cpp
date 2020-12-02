@@ -16,6 +16,8 @@
 
 
 #include <iostream>
+#include <vector>
+#include <sys/stat.h>
 
 ////////////////////////////////////////////////////////////////////////
 // Program variables
@@ -104,7 +106,7 @@ public:
 // State variables
 
 static R3Scene *scene = NULL;
-static RNArray<Camera *> cameras;
+static std::vector<RNArray<Camera *> > cameras;
 
 
 // Image types
@@ -216,7 +218,7 @@ ReadCameras(const char *filename)
     yf = atan(aspect * tan(xf));
     Camera *camera = new Camera(viewpoint, towards, up, xf, yf, neardist, fardist);
     camera->SetValue(value);
-    cameras.Insert(camera);
+    cameras.at(0).Insert(camera); //potential undesired behavior, adds all cameras read to one 'room'
     camera_count++;
   }
 
@@ -243,36 +245,64 @@ WriteCameras(const char *filename)
   // Start statistics
   RNTime start_time;
   start_time.Read();
+  int total_cams = 0;
 
-  // Open file
-  FILE *fp = fopen(filename, "w");
-  if (!fp) {
-    fprintf(stderr, "Unable to open cameras file %s\n", filename);
-    return 0;
+  //string parsing
+  std::string fn(filename);
+  int dir_index = fn.rfind('/');
+  std::string dir_path = fn.substr(0, dir_index + 1);
+  std::string path_end = fn.substr(dir_index);
+  //debug statement delete before push
+  printf("dir_path = %s\n", dir_path.c_str());
+  printf("path_end = %s\n", path_end.c_str());
+  //make sure to delete
+
+  //writes cameras for each room in the house
+  for (int i = 0; i < cameras.size(); i++) {
+
+     //create path
+     std::string path(dir_path);
+     path.append("Room_");
+     path.append(std::to_string(i+1));
+
+     //make directory
+     if (mkdir(path.c_str(), 0777) == -1 && errno != EEXIST) {
+        fprintf(stderr, "Unable to create room directory %s\n", path.c_str());
+     }
+
+     //complete path
+     path.append(path_end);
+
+     // Open file
+     FILE *fp = fopen(path.c_str(), "w");
+     if (!fp) {
+       fprintf(stderr, "Unable to open cameras file %s\n", path.c_str());
+       return 0;
+     }
+     // Write file
+     for (int j = 0; j < cameras.at(i).NEntries(); j++) {
+      Camera *camera = cameras.at(i).Kth(j);
+      R3Point eye = camera->Origin();
+      R3Vector towards = camera->Towards();
+      R3Vector up = camera->Up();
+      fprintf(fp, "%g %g %g  %g %g %g  %g %g %g  %g %g  %g\n",
+         eye.X(), eye.Y(), eye.Z(),
+         towards.X(), towards.Y(), towards.Z(),
+         up.X(), up.Y(), up.Z(),
+         camera->XFOV(), camera->YFOV(),
+         camera->Value());
+      total_cams++;
+     }
+
+     // Close file
+     fclose(fp);
   }
-
-  // Write file
-  for (int i = 0; i < cameras.NEntries(); i++) {
-    Camera *camera = cameras.Kth(i);
-    R3Point eye = camera->Origin();
-    R3Vector towards = camera->Towards();
-    R3Vector up = camera->Up();
-    fprintf(fp, "%g %g %g  %g %g %g  %g %g %g  %g %g  %g\n",
-      eye.X(), eye.Y(), eye.Z(),
-      towards.X(), towards.Y(), towards.Z(),
-      up.X(), up.Y(), up.Z(),
-      camera->XFOV(), camera->YFOV(),
-      camera->Value());
-  }
-
-  // Close file
-  fclose(fp);
 
   // Print statistics
   if (print_verbose) {
     printf("Wrote cameras to %s ...\n", filename);
     printf("  Time = %.2f seconds\n", start_time.Elapsed());
-    printf("  # Cameras = %d\n", cameras.NEntries());
+    printf("  # Cameras = %d\n", total_cams);
     fflush(stdout);
   }
 
@@ -288,33 +318,59 @@ WriteCameraExtrinsics(const char *filename)
   // Start statistics
   RNTime start_time;
   start_time.Read();
+  int total_cams = 0;
 
-  // Open file
-  FILE *fp = fopen(filename, "w");
-  if (!fp) {
-    fprintf(stderr, "Unable to open camera extrinsics file %s\n", filename);
-    return 0;
+  //string parsing
+  std::string fn(filename);
+  int dir_index = fn.rfind('/');
+  std::string dir_path = fn.substr(0, dir_index + 1);
+  std::string path_end = fn.substr(dir_index);
+
+  //writes camera extrinsics for each room in the house
+  for (int i = 0; i < cameras.size(); i++) {
+
+     //create path
+     std::string path(dir_path);
+     path.append("Room_");
+     path.append(std::to_string(i+1));
+
+     //make directory
+     if (mkdir(path.c_str(), 0777) == -1 && errno != EEXIST) {
+       fprintf(stderr, "Unable to create room directory %s\n", path.c_str());
+     }
+
+     //complete path
+     path.append(path_end);
+
+     // Open file
+     FILE *fp = fopen(path.c_str(), "w");
+     if (!fp) {
+      fprintf(stderr, "Unable to open cameras file %s\n", path.c_str());
+      return 0;
+     }
+
+     // Write file
+     for (int j = 0; j < cameras.at(i).NEntries(); j++) {
+      Camera *camera = cameras.at(i).Kth(j);
+      const R3CoordSystem& cs = camera->CoordSystem();
+      R4Matrix matrix = cs.Matrix();
+      fprintf(fp, "%g %g %g %g   %g %g %g %g  %g %g %g %g\n",
+         matrix[0][0], matrix[0][1], matrix[0][2], matrix[0][3],
+         matrix[1][0], matrix[1][1], matrix[1][2], matrix[1][3],
+         matrix[2][0], matrix[2][1], matrix[2][2], matrix[2][3]);
+      total_cams++;
+     }
+
+     // Close file
+     fclose(fp);
+
   }
-
-  // Write file
-  for (int i = 0; i < cameras.NEntries(); i++) {
-    Camera *camera = cameras.Kth(i);
-    const R3CoordSystem& cs = camera->CoordSystem();
-    R4Matrix matrix = cs.Matrix();
-    fprintf(fp, "%g %g %g %g   %g %g %g %g  %g %g %g %g\n",
-      matrix[0][0], matrix[0][1], matrix[0][2], matrix[0][3],
-      matrix[1][0], matrix[1][1], matrix[1][2], matrix[1][3],
-      matrix[2][0], matrix[2][1], matrix[2][2], matrix[2][3]);
-  }
-
-  // Close file
-  fclose(fp);
 
   // Print statistics
   if (print_verbose) {
     printf("Wrote camera extrinsics to %s ...\n", filename);
     printf("  Time = %.2f seconds\n", start_time.Elapsed());
-    printf("  # Cameras = %d\n", cameras.NEntries());
+    printf("  # Cameras = %d\n", total_cams);
     fflush(stdout);
   }
 
@@ -331,27 +387,50 @@ WriteCameraIntrinsics(const char *filename)
   RNTime start_time;
   start_time.Read();
 
-  // Open file
-  FILE *fp = fopen(filename, "w");
-  if (!fp) {
-    fprintf(stderr, "Unable to open camera intrinsics file %s\n", filename);
-    return 0;
+  //string parsing
+  std::string fn(filename);
+  int dir_index = fn.rfind('/');
+  std::string dir_path = fn.substr(0, dir_index + 1);
+  std::string path_end = fn.substr(dir_index);
+
+  //writes camera intrinsics for each room in the house
+  for (int i = 0; i < cameras.size(); i++) {
+
+     //create path
+     std::string path(dir_path);
+     path.append("Room_");
+     path.append(std::to_string(i+1));
+
+     //make directory
+     if (mkdir(path.c_str(), 0777) == -1 && errno != EEXIST) {
+      fprintf(stderr, "Unable to create room directory %s\n", path.c_str());
+     }
+
+     //complete path
+     path.append(path_end);
+
+     // Open file
+     FILE *fp = fopen(path.c_str(), "w");
+     if (!fp) {
+     fprintf(stderr, "Unable to open cameras file %s\n", path.c_str());
+     return 0;
+     }
+
+     // Get center of image
+     RNScalar cx = 0.5 * width;
+     RNScalar cy = 0.5 * height;
+
+     // Write file
+     for (int j = 0; j < cameras.at(i).NEntries(); j++) {
+      Camera *camera = cameras.at(i).Kth(j);
+      RNScalar fx = 0.5 * width / tan(camera->XFOV());
+      RNScalar fy = 0.5 * height / tan(camera->YFOV());
+      fprintf(fp, "%g 0 %g   0 %g %g  0 0 1\n", fx, cx, fy, cy);
+     }
+
+     // Close file
+     fclose(fp);
   }
-
-  // Get center of image
-  RNScalar cx = 0.5 * width;
-  RNScalar cy = 0.5 * height;
-
-  // Write file
-  for (int i = 0; i < cameras.NEntries(); i++) {
-    Camera *camera = cameras.Kth(i);
-    RNScalar fx = 0.5 * width / tan(camera->XFOV());
-    RNScalar fy = 0.5 * height / tan(camera->YFOV());
-    fprintf(fp, "%g 0 %g   0 %g %g  0 0 1\n", fx, cx, fy, cy);
-  }
-
-  // Close file
-  fclose(fp);
 
   // Print statistics
   if (print_verbose) {
@@ -373,21 +452,45 @@ WriteCameraNames(const char *filename)
   RNTime start_time;
   start_time.Read();
 
-  // Open file
-  FILE *fp = fopen(filename, "w");
-  if (!fp) {
-    fprintf(stderr, "Unable to open camera names file %s\n", filename);
-    return 0;
+  //string parsing
+  std::string fn(filename);
+  int dir_index = fn.rfind('/');
+  std::string dir_path = fn.substr(0, dir_index + 1);
+  std::string path_end = fn.substr(dir_index);
+
+  // Writes camera names for each room in the house
+  for (int i = 0; i < cameras.size(); i++) {
+
+     //create path
+     std::string path(dir_path);
+     path.append("Room_");
+     path.append(std::to_string(i+1));
+
+     //make directory
+     if (mkdir(path.c_str(), 0777) == -1 && errno != EEXIST) {
+     fprintf(stderr, "Unable to create room directory %s\n", path.c_str());
+     }
+
+     //complete path
+     path.append(path_end);
+
+     // Open file
+     FILE *fp = fopen(path.c_str(), "w");
+     if (!fp) {
+     fprintf(stderr, "Unable to open cameras file %s\n", path.c_str());
+     return 0;
+     }
+
+     // Write file
+     for (int j = 0; j < cameras.at(i).NEntries(); j++) {
+        Camera *camera = cameras.at(i).Kth(j);
+        fprintf(fp, "%s\n", (camera->name) ? camera->name : "-");
+     }
+
+     // Close file
+     fclose(fp);
   }
 
-  // Write file
-  for (int i = 0; i < cameras.NEntries(); i++) {
-    Camera *camera = cameras.Kth(i);
-    fprintf(fp, "%s\n", (camera->name) ? camera->name : "-");
-  }
-
-  // Close file
-  fclose(fp);
 
   // Print statistics
   if (print_verbose) {
@@ -1018,6 +1121,10 @@ CreateObjectCameras(void)
   RNScalar aspect = (RNScalar) height / (RNScalar) width;
   RNAngle yfov = atan(aspect * tan(xfov));
 
+  // Initialize variables to separate nodes by room
+  std::string past_room_name = "";
+  int cameras_room_index = -1;
+
   // Create camera with close up view of each object
   for (int i = 0; i < scene->NNodes(); i++) {
     R3SceneNode *node = scene->Node(i);
@@ -1025,6 +1132,13 @@ CreateObjectCameras(void)
     if (!IsObject(node)) continue;
     if (node->NElements() == 0) continue;
     R3Camera best_camera;
+
+    if (strcmp(past_room_name.c_str(), node->Name()) != 0) {
+       past_room_name.assign(node->Name());
+       cameras_room_index++;
+       RNArray<Camera *> temp;
+       cameras.push_back(temp);
+    }
 
     // Get node's centroid and radius in world coordinate system
     R3Point centroid = node->BBox().Centroid();
@@ -1095,7 +1209,7 @@ CreateObjectCameras(void)
       sprintf(camera_name, "%s#%s", parent_name, node_name);
       if (print_debug) printf("%s %g\n", camera_name, best_camera.Value());
       Camera *camera = new Camera(best_camera, camera_name);
-      cameras.Insert(camera);
+      cameras.at(cameras_room_index).Insert(camera);
       camera_count++;
     }
   }
@@ -1125,6 +1239,8 @@ CreateRoomCameras(void)
   RNAngle yfov = atan(aspect * tan(xfov));
 
   bool Success = false;
+  std::string past_room_name = "";
+  int cameras_room_index = -1;
 
   // Create one camera per direction per room
   for (int i = 0; i < scene->NNodes(); i++) {
@@ -1137,6 +1253,13 @@ CreateRoomCameras(void)
     if (!ComputeViewpointMask(room_node, viewpoint_mask)) continue;
 
     Success = true;
+
+    if (strcmp(past_room_name.c_str(), room_node->Name()) != 0) {
+       past_room_name.assign(room_node->Name());
+       cameras_room_index++;
+       RNArray<Camera *> temp;
+       cameras.push_back(temp);
+    }
 
     // Sample directions
     int nangles = (int) (RN_TWO_PI / angle_sampling + 0.5);
@@ -1196,14 +1319,14 @@ CreateRoomCameras(void)
         char name[1024];
         sprintf(name, "%s_%d", room_node->Name(), j);
         Camera *camera = new Camera(best_camera, name);
-        cameras.Insert(camera);
+        cameras.at(cameras_room_index).Insert(camera);
         camera_count++;
       }
     }
-    if (Success)
-    {
-      break;
-    }
+    // if (Success)
+    // {
+    //   break;
+    // }
   }
 
   // Print statistics
@@ -1274,7 +1397,7 @@ CreateWorldInHandCameras(void)
     // Create camera
     R3Camera c(viewpoint, towards, up, xfov, yfov, neardist, fardist);
     Camera *camera = new Camera(c, name);
-    cameras.Insert(camera);
+    cameras.at(0).Insert(camera); //potential undesired behavior, adds all world in hand cameras to one 'room'
     camera_count++;
   }
 
@@ -1300,60 +1423,62 @@ InterpolateCameraTrajectory(RNLength trajectory_step = 0.1)
   RNTime start_time;
   start_time.Read();
 
-  // Set some camera parameters based on first camera
-  RNLength xf = cameras.Head()->XFOV();
-  RNLength yf = cameras.Head()->YFOV();
-  RNLength neardist = cameras.Head()->Near();
-  RNLength fardist = cameras.Head()->Far();
+  for (int room = 0; room < cameras.size(); room++) {
+     // Set some camera parameters based on first camera
+     RNLength xf = cameras.at(room).Head()->XFOV();
+     RNLength yf = cameras.at(room).Head()->YFOV();
+     RNLength neardist = cameras.at(room).Head()->Near();
+     RNLength fardist = cameras.at(room).Head()->Far();
 
-  // Create spline data
-  int nkeypoints = cameras.NEntries();
-  R3Point *viewpoint_keypoints =  new R3Point [ nkeypoints ];
-  R3Point *towards_keypoints =  new R3Point [ nkeypoints ];
-  R3Point *up_keypoints =  new R3Point [ nkeypoints ];
-  RNScalar *parameters = new RNScalar [ nkeypoints ];
-  for (int i = 0; i < cameras.NEntries(); i++) {
-    R3Camera *camera = cameras.Kth(i);
-    viewpoint_keypoints[i] = camera->Origin();
-    towards_keypoints[i] = camera->Towards().Point();
-    up_keypoints[i] = camera->Up().Point();
-    if (i == 0) parameters[i] = 0;
-    else parameters[i] = parameters[i-1] + R3Distance(viewpoint_keypoints[i], viewpoint_keypoints[i-1]) + R3InteriorAngle(towards_keypoints[i].Vector(), towards_keypoints[i-1].Vector());
-  }
+     // Create spline data
+     int nkeypoints = cameras.at(room).NEntries();
+     R3Point *viewpoint_keypoints =  new R3Point [ nkeypoints ];
+     R3Point *towards_keypoints =  new R3Point [ nkeypoints ];
+     R3Point *up_keypoints =  new R3Point [ nkeypoints ];
+     RNScalar *parameters = new RNScalar [ nkeypoints ];
+     for (int i = 0; i < cameras.at(room).NEntries(); i++) {
+      R3Camera *camera = cameras.at(room).Kth(i);
+      viewpoint_keypoints[i] = camera->Origin();
+      towards_keypoints[i] = camera->Towards().Point();
+      up_keypoints[i] = camera->Up().Point();
+      if (i == 0) parameters[i] = 0;
+      else parameters[i] = parameters[i-1] + R3Distance(viewpoint_keypoints[i], viewpoint_keypoints[i-1]) + R3InteriorAngle(towards_keypoints[i].Vector(), towards_keypoints[i-1].Vector());
+     }
 
-  // Create splines
-  R3CatmullRomSpline viewpoint_spline(viewpoint_keypoints, parameters, nkeypoints);
-  R3CatmullRomSpline towards_spline(towards_keypoints, parameters, nkeypoints);
-  R3CatmullRomSpline up_spline(up_keypoints, parameters, nkeypoints);
+     // Create splines
+     R3CatmullRomSpline viewpoint_spline(viewpoint_keypoints, parameters, nkeypoints);
+     R3CatmullRomSpline towards_spline(towards_keypoints, parameters, nkeypoints);
+     R3CatmullRomSpline up_spline(up_keypoints, parameters, nkeypoints);
 
-  // Delete cameras
-  for (int i = 0; i < cameras.NEntries(); i++) delete cameras[i];
-  cameras.Empty();
+     // Delete cameras
+     for (int i = 0; i < cameras.at(room).NEntries(); i++) delete cameras.at(room)[i];
+     cameras.at(room).Empty();
 
-  // Resample splines
-  for (RNScalar u = viewpoint_spline.StartParameter(); u <= viewpoint_spline.EndParameter(); u += trajectory_step) {
-    R3Point viewpoint = viewpoint_spline.PointPosition(u);
-    R3Point towards = towards_spline.PointPosition(u);
-    R3Point up = up_spline.PointPosition(u);
-    Camera *camera = new Camera(viewpoint, towards.Vector(), up.Vector(), xf, yf, neardist, fardist);
-    char name[1024];
-    sprintf(name, "T%f", u);
-    camera->name = strdup(name);
-    cameras.Insert(camera);
-  }
+     // Resample splines
+     for (RNScalar u = viewpoint_spline.StartParameter(); u <= viewpoint_spline.EndParameter(); u += trajectory_step) {
+      R3Point viewpoint = viewpoint_spline.PointPosition(u);
+      R3Point towards = towards_spline.PointPosition(u);
+      R3Point up = up_spline.PointPosition(u);
+      Camera *camera = new Camera(viewpoint, towards.Vector(), up.Vector(), xf, yf, neardist, fardist);
+      char name[1024];
+      sprintf(name, "T%f", u);
+      camera->name = strdup(name);
+      cameras.at(room).Insert(camera);
+     }
 
-  // Delete spline data
-  delete [] viewpoint_keypoints;
-  delete [] towards_keypoints;
-  delete [] up_keypoints;
-  delete [] parameters;
+     // Delete spline data
+     delete [] viewpoint_keypoints;
+     delete [] towards_keypoints;
+     delete [] up_keypoints;
+     delete [] parameters;
 
-  // Print statistics
-  if (print_verbose) {
-    printf("Interpolated camera trajectory ...\n");
-    printf("  Time = %.2f seconds\n", start_time.Elapsed());
-    printf("  # Cameras = %d\n", cameras.NEntries());
-    fflush(stdout);
+     // Print statistics
+     if (print_verbose) {
+      printf("Interpolated camera trajectory for room %i ...\n", room);
+      printf("  Time = %.2f seconds\n", start_time.Elapsed());
+      printf("  # Cameras = %d\n", cameras.at(room).NEntries());
+      fflush(stdout);
+     }
   }
 
   // Return success
@@ -1374,13 +1499,15 @@ SortCameras(void)
   start_time.Read();
 
   // Sort the cameras
-  cameras.Sort(R3CompareCameras);
+  for (int i = 0; i < cameras.size(); i++) {
+     cameras.at(i).Sort(R3CompareCameras);
+  }
 
   // Print statistics
   if (print_verbose) {
     printf("Sorted cameras ...\n");
     printf("  Time = %.2f seconds\n", start_time.Elapsed());
-    printf("  # Cameras = %d\n", cameras.NEntries());
+    printf("  # Cameras = %d\n", cameras.at(0).NEntries());
     fflush(stdout);
   }
 
@@ -1606,7 +1733,3 @@ int main(int argc, char **argv)
   // Return success
   return 0;
 }
-
-
-
-
