@@ -644,7 +644,7 @@ DrawNodeWithOpenGL(const R3Camera& camera, R3Scene *scene, R3SceneNode *node, in
         R3SceneNode *ancestor = node;
         while (model_index.empty() && ancestor)
         {
-          model_index = ancestor->Info_str("coarse_grained_class");
+          model_index = ancestor->Info_str("nyuv2_40class");
           ancestor = ancestor->Parent();
         }
 
