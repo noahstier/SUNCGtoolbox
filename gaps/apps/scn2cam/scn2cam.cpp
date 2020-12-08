@@ -17,7 +17,10 @@
 
 
 #include <iostream>
+#include <sstream>
+#include <fstream>
 #include <vector>
+#include <string>
 #include <sys/stat.h>
 
 ////////////////////////////////////////////////////////////////////////
@@ -81,6 +84,18 @@ static int mesa = 0;
 static int print_verbose = 0;
 static int print_debug = 0;
 
+std::string dirname(const std::string& str)
+{
+  size_t found;
+  found = str.find_last_of("/\\");
+  return str.substr(0, found);
+}
+std::string base_fname(const std::string& str)
+{
+  size_t found;
+  found = str.find_last_of("/\\");
+  return str.substr(found + 1);
+}
 
 
 ////////////////////////////////////////////////////////////////////////
@@ -1243,6 +1258,13 @@ CreateRoomCameras(void)
   std::string past_room_name = "";
   int cameras_room_index = -1;
 
+  std::string scene_dir = dirname(output_cameras_filename);
+  std::stringstream bbox_fname;
+  bbox_fname << scene_dir << "/bboxes.txt";
+
+  std::ofstream bbox_file(bbox_fname.str());
+  bbox_file << "room_name,xmin,ymin,zmin,xmax,ymax,zmax\n";
+
   // Create one camera per direction per room
   for (int i = 0; i < scene->NNodes(); i++) {
     R3SceneNode *room_node = scene->Node(i);
@@ -1262,6 +1284,18 @@ CreateRoomCameras(void)
        cameras.push_back(temp);
     }
 
+    R3Box room_bbox = room_node->BBox();
+
+    bbox_file << 
+      "Room_" << cameras_room_index + 1
+      << ',' << room_bbox.XMin()
+      << ',' << room_bbox.YMin()
+      << ',' << room_bbox.ZMin()
+      << ',' << room_bbox.XMax()
+      << ',' << room_bbox.YMax()
+      << ',' << room_bbox.ZMax()
+      << '\n';
+    
     // Sample directions
     int nangles = (int) (RN_TWO_PI / angle_sampling + 0.5);
     RNScalar angle_spacing = (nangles > 1) ? RN_TWO_PI / nangles : RN_TWO_PI;
@@ -1270,7 +1304,6 @@ CreateRoomCameras(void)
       R3Camera best_camera;
 
       // Sample positions
-      R3Box room_bbox = room_node->BBox();
       for (RNScalar z = room_bbox.ZMin(); z < room_bbox.ZMax(); z += position_sampling) {
         for (RNScalar x = room_bbox.XMin(); x < room_bbox.XMax(); x += position_sampling) {
           // Compute position
