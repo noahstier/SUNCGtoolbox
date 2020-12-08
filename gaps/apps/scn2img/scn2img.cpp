@@ -10,104 +10,51 @@
 #  include "GL/osmesa.h"
 #else
 #  include "fglut/fglut.h"
+#include "fglut/freeglut_ext.h"
 #  define USE_GLUT
 #endif
 
 #include <experimental/filesystem>
 #include <unordered_map>
-
+#include <iostream>
 
 std::unordered_map<std::string, int> class_map = {
-  {"ATM", 0},
-  {"air_conditioner", 1},
-  {"arch", 2},
-  {"bathroom_stuff", 3},
-  {"bathtub", 4},
-  {"bed", 5},
-  {"bench_chair", 6},
-  {"books", 7},
-  {"candle", 8},
-  {"cart", 9},
-  {"ceiling", 10},
-  {"chair", 11},
-  {"clock", 12},
-  {"cloth", 13},
-  {"coffin", 14},
-  {"column", 15},
-  {"computer", 16},
-  {"curtain", 17},
-  {"decoration", 18},
-  {"desk", 19},
-  {"door", 20},
-  {"dresser", 21},
-  {"dressing_table", 22},
-  {"drinkbar", 23},
-  {"empty", 24},
-  {"fan", 25},
-  {"fence", 26},
-  {"fireplace", 27},
-  {"floor", 28},
-  {"garage_door", 29},
-  {"grill", 30},
-  {"gym_equipment", 31},
-  {"hanger", 32},
-  {"hanging_kitchen_cabinet", 33},
-  {"headstone", 34},
-  {"heater", 35},
-  {"household_appliance", 36},
-  {"indoor_lamp", 37},
-  {"kitchen_appliance", 38},
-  {"kitchen_cabinet", 39},
-  {"kitchen_set", 40},
-  {"kitchenware", 41},
-  {"magazines", 42},
-  {"mailbox", 43},
-  {"mirror", 44},
-  {"music", 45},
-  {"ottoman", 46},
-  {"outdoor_cover", 47},
-  {"outdoor_lamp", 48},
-  {"outdoor_seating", 49},
-  {"outdoor_spring", 50},
-  {"partition", 51},
-  {"person", 52},
-  {"pet", 53},
-  {"picture_frame", 54},
-  {"pillow", 55},
-  {"plant", 56},
-  {"pool", 57},
-  {"recreation", 58},
-  {"roof", 59},
-  {"rug", 60},
-  {"safe", 61},
-  {"shelving", 62},
-  {"shoes", 63},
-  {"shoes_cabinet", 64},
-  {"shower", 65},
-  {"sink", 66},
-  {"sofa", 67},
-  {"stairs", 68},
-  {"stand", 69},
-  {"storage_bench", 70},
-  {"switch", 71},
-  {"table", 72},
-  {"table_and_chair", 73},
-  {"television", 74},
-  {"toilet", 75},
-  {"toy", 76},
-  {"trash_can", 77},
-  {"trinket", 78},
-  {"tripod", 79},
-  {"tv_stand", 80},
-  {"unknown", 81},
-  {"vase", 82},
-  {"vehicle", 83},
-  {"wall", 84},
-  {"wardrobe_cabinet", 85},
-  {"whiteboard", 86},
-  {"window", 87},
-  {"wood_board", 88},
-  {"workplace", 89}
+  {"void", 0},
+  {"bed", 1},
+  {"blinds", 2},
+  {"books", 3},
+  {"bookshelf", 4},
+  {"cabinet", 5},
+  {"ceiling", 6},
+  {"chair", 7},
+  {"clothes", 8},
+  {"counter", 9},
+  {"curtain", 10},
+  {"desk", 11},
+  {"door", 12},
+  {"dresser", 13},
+  {"floor", 14},
+  {"floor_mat", 15},
+  {"lamp", 16},
+  {"mirror", 17},
+  {"night_stand", 18},
+  {"otherfurniture", 19},
+  {"otherprop", 20},
+  {"otherstructure", 21},
+  {"person", 22},
+  {"picture", 23},
+  {"pillow", 24},
+  {"refridgerator", 25},
+  {"shelves", 26},
+  {"shower_curtain", 27},
+  {"sink", 28},
+  {"sofa", 29},
+  {"table", 30},
+  {"television", 31},
+  {"toilet", 32},
+  {"wall", 33},
+  {"whiteboard", 34},
+  {"window", 35}
 };
 
 ////////////////////////////////////////////////////////////////////////
@@ -1003,7 +950,7 @@ void Redraw(void)
       image.Clear(0);
       if (CaptureInteger(image)) {
         char output_image_filename[1024];
-        sprintf(output_image_filename, "%s/category/%s.pfm", output_image_directory, name);
+        sprintf(output_image_filename, "%s/category/%s.png", output_image_directory, name);
         image.WriteFile(output_image_filename);
       }
     }
@@ -1238,10 +1185,19 @@ RenderImagesWithGlut(const char *output_image_directory)
   char *argv[1];
   argv[0] = strdup("scn2img");
   glutInit(&argc, argv);
+
+  glutSetOption(GLUT_MULTISAMPLE, 4);
+
   glutInitWindowPosition(100, 100);
   glutInitWindowSize(width, height);
-  glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB | GLUT_DEPTH);
+  glutInitDisplayMode(GLUT_SINGLE | GLUT_RGBA | GLUT_DEPTH | GLUT_MULTISAMPLE);
   glutCreateWindow("Scene Image Capture");
+
+  GLint iMultiSample = 0;
+  GLint iNumSamples = 0;
+  glGetIntegerv(GL_SAMPLE_BUFFERS, &iMultiSample);
+  glGetIntegerv(GL_SAMPLES, &iNumSamples);
+  std::cout << "MSAA: " << iMultiSample << ", #samples: " << iNumSamples << std::endl;
 
   // Initialize GLUT callback functions
   glutDisplayFunc(Redraw);

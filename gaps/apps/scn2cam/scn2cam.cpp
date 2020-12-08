@@ -11,6 +11,7 @@
 #  include "GL/osmesa.h"
 #else
 #  include "fglut/fglut.h"
+#include "fglut/freeglut_ext.h"
 #  define USE_GLUT
 #endif
 
@@ -1323,10 +1324,6 @@ CreateRoomCameras(void)
         camera_count++;
       }
     }
-    // if (Success)
-    // {
-    //   break;
-    // }
   }
 
   // Print statistics
@@ -1559,6 +1556,7 @@ CreateAndWriteCamerasWithGlut(void)
   char *argv[1];
   argv[0] = strdup("scn2cam");
   glutInit(&argc, argv);
+
   glutInitWindowPosition(100, 100);
   glutInitWindowSize(width, height);
   glutInitDisplayMode(GLUT_SINGLE | GLUT_RGBA | GLUT_DEPTH);
